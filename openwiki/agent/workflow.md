@@ -33,7 +33,7 @@ Base URLs are resolved through `resolveProviderBaseUrl()` in `src/constants.ts`,
 
 ## Agent-CLI engine execution
 
-Providers with `kind: "agent-cli"` in `PROVIDER_CONFIGS` (currently `claude-code`) do not create a model client at all. `runAgentCliRun()` in `src/agent/index.ts` builds an `EngineRunSpec` — command, repository root, model ID, the fully assembled user prompt (delivered on stdin), an OpenWiki system prompt that is **appended** to the vendor agent's own system prompt, and an optional vendor session ID for follow-ups — and hands it to the generic runner in `src/agent/engines/runner.ts`.
+Providers with `kind: "agent-cli"` in `PROVIDER_CONFIGS` (currently `claude-code` and `ibm-bob`) do not create a model client at all. `runAgentCliRun()` in `src/agent/index.ts` builds an `EngineRunSpec` — command, repository root, model ID, the fully assembled user prompt (delivered on stdin), an OpenWiki system prompt that is **appended** to the vendor agent's own system prompt, and an optional vendor session ID for follow-ups — and hands it to the generic runner in `src/agent/engines/runner.ts`.
 
 The runner:
 
@@ -43,6 +43,8 @@ The runner:
 - records the vendor session ID per OpenWiki thread so interactive follow-ups resume the same vendor session, and surfaces failures with the stderr tail plus the install hint when the output looks like a login/auth problem.
 
 The Claude Code adapter (`src/agent/engines/claude-code.ts`) runs `claude -p --output-format stream-json` with `--permission-mode acceptEdits` and a documentation-scoped `--allowedTools` allowlist: read/search tools, write/edit tools, read-only git commands, and the single exact `rm` needed to delete the temporary plan file. Network tools are deliberately excluded. A model ID of `default` means "use the subscription's default model" (no `--model` flag is passed).
+
+The ibm-bob adapter uses Bob Shell's `--approval-mode auto_edit`, pins `--chat-mode advanced`, and prepends the system prompt to the stdin payload because Bob has no append-system-prompt flag; resumed follow-ups pass the same payload via `-p` instead, which Bob requires (its stdin detection for that check doesn't work, so stdin is left empty on resume to avoid Bob concatenating the payload twice). Its `--allowed-tools` allowlist (`IBM_BOB_ALLOWED_TOOLS` in `src/agent/engines/ibm-bob.ts`) grants the bare `execute_command` tool name -- Bob's Roo-style shell tool -- rather than a command-scoped list like Claude Code's: Bob's `--allowed-tools` flag matches tool names only, with no command-level scoping, so shell approval there is all-or-nothing.
 
 After the engine run, the same content-snapshot check applies: `.last-update.json` is written only if the `openwiki/` hash changed.
 

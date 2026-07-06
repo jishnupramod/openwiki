@@ -5,7 +5,10 @@ export type EngineRunSpec = {
   cwd: string;
   /** "default" means the vendor CLI's own default model (no model flag). */
   modelId: string;
-  /** Fully assembled user prompt, delivered on stdin. */
+  /**
+   * Fully assembled user prompt; delivered on stdin unless the adapter
+   * composes delivery differently (see buildStdin/buildArgs).
+   */
   prompt: string;
   /** Appended to (not replacing) the vendor agent's own system prompt. */
   systemPrompt: string;
@@ -24,9 +27,15 @@ export type AgentCliInstallStatus = {
 };
 
 export type AgentCliAdapter = {
-  id: "claude-code";
+  id: "claude-code" | "ibm-bob";
   detectInstall(binary: string): Promise<AgentCliInstallStatus>;
   buildArgs(spec: EngineRunSpec): string[];
+  /**
+   * Composes the full stdin payload for vendors without a system-prompt
+   * flag. When absent, the runner sends spec.prompt unchanged; adapters may
+   * also route delivery elsewhere (e.g. via buildArgs) and return "" here.
+   */
+  buildStdin?(spec: EngineRunSpec): string;
   /** Parses one NDJSON line of vendor output; unknown lines return []. */
   parseEvent(line: unknown): AgentCliEvent[];
 };

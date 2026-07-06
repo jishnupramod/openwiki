@@ -7,6 +7,7 @@ import {
   BASETEN_API_KEY_ENV_KEY,
   CLAUDE_CODE_BINARY_ENV_KEY,
   FIREWORKS_API_KEY_ENV_KEY,
+  IBM_BOB_BINARY_ENV_KEY,
   isValidModelId,
   normalizeProvider,
   OPENAI_API_KEY_ENV_KEY,
@@ -44,6 +45,7 @@ const managedEnvKeys = [
   ANTHROPIC_BASE_URL_ENV_KEY,
   OPENROUTER_API_KEY_ENV_KEY,
   CLAUDE_CODE_BINARY_ENV_KEY,
+  IBM_BOB_BINARY_ENV_KEY,
   OPENWIKI_PROVIDER_ENV_KEY,
   OPENWIKI_MODEL_ID_ENV_KEY,
   "LANGSMITH_API_KEY",
@@ -89,6 +91,7 @@ export async function getCredentialDiagnostics(): Promise<
     createCredentialDiagnostic(ANTHROPIC_BASE_URL_ENV_KEY, fileEnv),
     createCredentialDiagnostic(OPENROUTER_API_KEY_ENV_KEY, fileEnv),
     createCredentialDiagnostic(CLAUDE_CODE_BINARY_ENV_KEY, fileEnv),
+    createCredentialDiagnostic(IBM_BOB_BINARY_ENV_KEY, fileEnv),
     createCredentialDiagnostic(OPENWIKI_MODEL_ID_ENV_KEY, fileEnv),
     createCredentialDiagnostic("LANGSMITH_API_KEY", fileEnv),
   ];
@@ -182,7 +185,8 @@ function isNonSecretDiagnosticKey(key: string): boolean {
     key === OPENWIKI_PROVIDER_ENV_KEY ||
     key === ANTHROPIC_BASE_URL_ENV_KEY ||
     key === OPENAI_COMPATIBLE_BASE_URL_ENV_KEY ||
-    key === CLAUDE_CODE_BINARY_ENV_KEY
+    key === CLAUDE_CODE_BINARY_ENV_KEY ||
+    key === IBM_BOB_BINARY_ENV_KEY
   );
 }
 
