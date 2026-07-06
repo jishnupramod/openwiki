@@ -29,6 +29,7 @@ import {
   ANTHROPIC_API_KEY_ENV_KEY,
   BASETEN_API_KEY_ENV_KEY,
   FIREWORKS_API_KEY_ENV_KEY,
+  formatProviderSwitchNotice,
   getDefaultModelId,
   getProviderApiKeyEnvKey,
   getProviderLabel,
@@ -1522,11 +1523,7 @@ function ChatInput({
     try {
       await onProviderSelect(provider);
       resetInput();
-      setNotice(
-        `Provider switched to ${getProviderLabel(provider)} with model ${getDefaultModelId(
-          provider,
-        )}. Ensure ${getProviderApiKeyEnvKey(provider)} is set.`,
-      );
+      setNotice(formatProviderSwitchNotice(provider));
     } catch (saveError) {
       setError(
         saveError instanceof Error
