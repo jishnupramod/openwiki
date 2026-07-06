@@ -7,6 +7,13 @@ import { ChatOpenAI } from "@langchain/openai";
 import { ChatOpenRouter } from "@langchain/openrouter";
 import { createDeepAgent, LocalShellBackend } from "deepagents";
 import { loadOpenWikiEnv, openWikiEnvDir } from "../env.js";
+import { getAgentCliAdapter } from "./engines/index.js";
+import {
+  getThreadSessionId,
+  runAgentCli,
+  setThreadSessionId,
+} from "./engines/runner.js";
+import type { EngineRunSpec } from "./engines/types.js";
 import { createSystemPrompt, createUserPrompt } from "./prompt.js";
 import type {
   OpenWikiCommand,
@@ -19,10 +26,12 @@ import {
   ANTHROPIC_BASE_URL_ENV_KEY,
   BASETEN_API_KEY_ENV_KEY,
   FIREWORKS_API_KEY_ENV_KEY,
+  getAgentCliProviderConfig,
   getDefaultModelId,
   getProviderApiKeyEnvKey,
   getProviderBaseUrlEnvKey,
   getProviderLabel,
+  isAgentCliProvider,
   isValidModelId,
   normalizeModelId,
   OPENAI_API_KEY_ENV_KEY,
@@ -45,6 +54,11 @@ import {
   shouldCheckUpdateNoop,
   writeLastUpdateMetadata,
 } from "./utils.js";
+import {
+  createSyntheticToolCallId,
+  formatToolArgs,
+  formatToolCallName,
+} from "./tool-format.js";
 
 export async function runOpenWikiAgent(
   command: OpenWikiCommand,
@@ -86,8 +100,17 @@ export async function runOpenWikiAgent(
   }
 
   const provider = resolveConfiguredProvider();
-  const providerBaseUrl = resolveProviderBaseUrl(provider);
   emitDebug(options, `provider=${provider}`);
+
+  if (isAgentCliProvider(provider)) {
+    const agentCliModelId = resolveModelId(options, provider);
+
+    emitDebug(options, `model=${agentCliModelId}`);
+
+    return runAgentCliRun(command, cwd, options, provider, agentCliModelId);
+  }
+
+  const providerBaseUrl = resolveProviderBaseUrl(provider);
   if (providerBaseUrl) {
     emitDebug(options, `provider.baseUrl=${JSON.stringify(providerBaseUrl)}`);
   }
@@ -317,6 +340,91 @@ Runtime note:
 - Do not pass host absolute paths to filesystem tools. A host absolute path will be treated as a virtual path and will write to the wrong location.
 - Shell execute commands run on the host. For execute, use cd ${cwd} before repository commands.
 - Do not search parent directories or unrelated repositories.
+`.trim();
+}
+
+async function runAgentCliRun(
+  command: OpenWikiCommand,
+  cwd: string,
+  options: OpenWikiRunOptions,
+  provider: OpenWikiProvider,
+  modelId: string,
+): Promise<OpenWikiRunResult> {
+  const context = await createRunContext(command, cwd);
+  emitDebug(options, "context=created");
+  const openWikiSnapshotBefore =
+    command === "chat" ? null : await createOpenWikiContentSnapshot(cwd);
+  emitDebug(options, "openwiki.snapshot=created");
+  const threadId = options.threadId ?? createThreadId(cwd, createRunThreadId());
+  emitDebug(options, `thread=${threadId}`);
+  const resumeSessionId =
+    options.isFollowup === true ? getThreadSessionId(threadId) : undefined;
+
+  if (resumeSessionId) {
+    emitDebug(options, `engine.resume session=${resumeSessionId}`);
+  }
+
+  const spec: EngineRunSpec = {
+    command,
+    cwd,
+    modelId,
+    prompt: createAgentCliRunUserMessage(command, cwd, context, options),
+    systemPrompt: createSystemPrompt(command, "agent-cli"),
+    resumeSessionId,
+  };
+
+  const outcome = await runAgentCli(
+    getAgentCliAdapter(provider),
+    getAgentCliProviderConfig(provider),
+    spec,
+    options,
+  );
+
+  if (outcome.sessionId) {
+    setThreadSessionId(threadId, outcome.sessionId);
+  }
+
+  if (
+    command !== "chat" &&
+    openWikiSnapshotBefore !== (await createOpenWikiContentSnapshot(cwd))
+  ) {
+    await writeLastUpdateMetadata(command, cwd, modelId);
+    emitDebug(options, "metadata=written");
+  } else {
+    emitDebug(
+      options,
+      command === "chat"
+        ? "metadata=skipped command=chat"
+        : "metadata=skipped openwiki=unchanged",
+    );
+  }
+
+  return {
+    command,
+    model: modelId,
+  };
+}
+
+function createAgentCliRunUserMessage(
+  command: OpenWikiCommand,
+  cwd: string,
+  context: Awaited<ReturnType<typeof createRunContext>>,
+  options: OpenWikiRunOptions,
+): string {
+  if (options.isFollowup === true && options.userMessage?.trim()) {
+    return options.userMessage.trim();
+  }
+
+  return `
+${createUserPrompt(command, context, options.userMessage ?? null)}
+
+Repository root:
+${cwd}
+
+Runtime note:
+- Treat the repository root above as the only project you are documenting.
+- Your working directory is the repository root. Use repository-relative paths such as README.md and openwiki/quickstart.md with your file tools.
+- Do not read or modify files outside this repository.
 `.trim();
 }
 
@@ -947,54 +1055,6 @@ function parseToolStreamEvent(payload: unknown): OpenWikiRunEvent | null {
   }
 
   return null;
-}
-
-function formatToolCallName(name: string): string {
-  return name === "execute" ? "Execute" : name;
-}
-
-function formatToolArgs(input: unknown): string {
-  const value = parseStringifiedJson(input);
-
-  if (isRecord(value)) {
-    return Object.entries(value)
-      .map(([key, argValue]) => `${key}=${formatToolValue(argValue)}`)
-      .join(", ");
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(formatToolValue).join(", ");
-  }
-
-  if (value === undefined || value === null) {
-    return "";
-  }
-
-  return formatToolValue(value);
-}
-
-function formatToolValue(value: unknown): string {
-  if (typeof value === "string") {
-    return JSON.stringify(value);
-  }
-
-  return JSON.stringify(value) ?? String(value);
-}
-
-function parseStringifiedJson(value: unknown): unknown {
-  if (typeof value !== "string") {
-    return value;
-  }
-
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
-function createSyntheticToolCallId(name: string, input: unknown): string {
-  return `${name}:${formatToolValue(input)}`;
 }
 
 function getStringRecordValue(

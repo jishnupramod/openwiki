@@ -29,10 +29,12 @@ import {
   ANTHROPIC_API_KEY_ENV_KEY,
   BASETEN_API_KEY_ENV_KEY,
   FIREWORKS_API_KEY_ENV_KEY,
+  formatProviderSwitchNotice,
   getDefaultModelId,
   getProviderApiKeyEnvKey,
   getProviderLabel,
   getProviderModelOptions,
+  isAgentCliProvider,
   isValidModelId,
   normalizeModelId,
   normalizeProvider,
@@ -239,14 +241,16 @@ function App({ command }: AppProps) {
       return;
     }
 
-    const apiKeyEnvKey = getProviderApiKeyEnvKey(sessionProvider);
+    if (!isAgentCliProvider(sessionProvider)) {
+      const apiKeyEnvKey = getProviderApiKeyEnvKey(sessionProvider);
 
-    if (!process.env[apiKeyEnvKey] && !process.stdin.isTTY) {
-      setRunState({
-        status: "error",
-        message: `${apiKeyEnvKey} is required. Run openwiki in an interactive terminal to save credentials.`,
-      });
-      return;
+      if (!process.env[apiKeyEnvKey] && !process.stdin.isTTY) {
+        setRunState({
+          status: "error",
+          message: `${apiKeyEnvKey} is required. Run openwiki in an interactive terminal to save credentials.`,
+        });
+        return;
+      }
     }
 
     if (shouldRunInteractiveCredentialSetup) {
@@ -1507,7 +1511,7 @@ function ChatInput({
 
     if (provider === null) {
       setError(
-        "Enter a valid provider: openrouter, baseten, fireworks, openai, or anthropic.",
+        `Enter a valid provider: ${SELECTABLE_OPENWIKI_PROVIDERS.join(", ")}.`,
       );
       return;
     }
@@ -1519,11 +1523,7 @@ function ChatInput({
     try {
       await onProviderSelect(provider);
       resetInput();
-      setNotice(
-        `Provider switched to ${getProviderLabel(provider)} with model ${getDefaultModelId(
-          provider,
-        )}. Ensure ${getProviderApiKeyEnvKey(provider)} is set.`,
-      );
+      setNotice(formatProviderSwitchNotice(provider));
     } catch (saveError) {
       setError(
         saveError instanceof Error
@@ -3120,15 +3120,18 @@ function resolveStartupCommand(command: CliCommand): CliCommand {
     (command.print || !process.stdin.isTTY)
   ) {
     const provider = resolveConfiguredProvider();
-    const apiKeyEnvKey = getProviderApiKeyEnvKey(provider);
-    const hasProviderKey = Boolean(process.env[apiKeyEnvKey]);
 
-    if (!hasProviderKey) {
-      return {
-        kind: "error",
-        exitCode: 1,
-        message: `${apiKeyEnvKey} is required for non-interactive runs. Run openwiki in an interactive terminal to save credentials.`,
-      };
+    if (!isAgentCliProvider(provider)) {
+      const apiKeyEnvKey = getProviderApiKeyEnvKey(provider);
+      const hasProviderKey = Boolean(process.env[apiKeyEnvKey]);
+
+      if (!hasProviderKey) {
+        return {
+          kind: "error",
+          exitCode: 1,
+          message: `${apiKeyEnvKey} is required for non-interactive runs. Run openwiki in an interactive terminal to save credentials.`,
+        };
+      }
     }
   }
 
