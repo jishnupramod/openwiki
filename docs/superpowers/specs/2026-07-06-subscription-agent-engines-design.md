@@ -17,13 +17,13 @@ second, metered API bill.
 
 ## Decision summary
 
-| Decision | Choice |
-| --- | --- |
-| End goal | Design for an eventual upstream PR (clean abstraction, tests, docs) |
-| Run surface (v1) | Local interactive/one-shot runs only; CI/scheduled updates stay on API keys for now, design leaves room for CI tokens later |
-| Reference agent | Claude Code (headless `claude -p`) |
-| Integration style | Full delegation: the subscription agent runs the whole documentation task with its own tools |
-| Mechanism | Subprocess adapters behind a common `AgentCliAdapter` interface (no new npm dependencies); adapter internals may later swap to a vendor SDK without changing the interface |
+| Decision          | Choice                                                                                                                                                                     |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| End goal          | Design for an eventual upstream PR (clean abstraction, tests, docs)                                                                                                        |
+| Run surface (v1)  | Local interactive/one-shot runs only; CI/scheduled updates stay on API keys for now, design leaves room for CI tokens later                                                |
+| Reference agent   | Claude Code (headless `claude -p`)                                                                                                                                         |
+| Integration style | Full delegation: the subscription agent runs the whole documentation task with its own tools                                                                               |
+| Mechanism         | Subprocess adapters behind a common `AgentCliAdapter` interface (no new npm dependencies); adapter internals may later swap to a vendor SDK without changing the interface |
 
 Explicitly **out of scope**: extracting subscription OAuth tokens to call raw
 vendor APIs (ToS-violating), a "model-only" LangChain shim over an agent CLI,
@@ -33,7 +33,7 @@ adapter and is used to sanity-check the interface shape).
 
 ## Architecture
 
-OpenWiki gains a second *kind* of provider. Shared run scaffolding — prompt
+OpenWiki gains a second _kind_ of provider. Shared run scaffolding — prompt
 assembly, git-evidence run context, update no-op detection, doc content
 snapshot, `.last-update.json` metadata — remains in OpenWiki and is common to
 both kinds. Only the execution engine differs:
@@ -49,7 +49,7 @@ both kinds. Only the execution engine differs:
   - `ApiProviderConfig` (existing fields: `apiKeyEnvKey`, `baseURL`,
     `baseUrlEnvKey`, `requiresBaseUrl`, `label`, `modelOptions`).
   - `AgentCliProviderConfig`: `{ kind: "agent-cli"; label; modelOptions;
-    adapterId; binaryEnvKey }` — no API key, no base URL.
+adapterId; binaryEnvKey }` — no API key, no base URL.
 - New provider id `claude-code`, added to `OpenWikiProvider`,
   `SELECTABLE_OPENWIKI_PROVIDERS`, and `PROVIDER_CONFIGS`:
   - Label: `Claude Code (subscription)`.
@@ -68,18 +68,20 @@ both kinds. Only the execution engine differs:
   type EngineRunSpec = {
     command: OpenWikiCommand;
     cwd: string;
-    modelId: string;            // "default" => adapter omits model flag
-    prompt: string;             // fully assembled user prompt
-    systemPrompt: string;       // appended, not replacing the agent's own
-    resumeSessionId?: string;   // interactive follow-ups
+    modelId: string; // "default" => adapter omits model flag
+    prompt: string; // fully assembled user prompt
+    systemPrompt: string; // appended, not replacing the agent's own
+    resumeSessionId?: string; // interactive follow-ups
   };
 
   type AgentCliAdapter = {
-    id: "claude-code";          // union grows with each adapter
-    defaultBinary: string;      // "claude"
-    binaryEnvKey: string;       // override, e.g. OPENWIKI_CLAUDE_CODE_BINARY
-    installHint: string;        // shown when binary/auth missing
-    detectInstall(binary: string): Promise<{ found: boolean; version?: string }>;
+    id: "claude-code"; // union grows with each adapter
+    defaultBinary: string; // "claude"
+    binaryEnvKey: string; // override, e.g. OPENWIKI_CLAUDE_CODE_BINARY
+    installHint: string; // shown when binary/auth missing
+    detectInstall(
+      binary: string,
+    ): Promise<{ found: boolean; version?: string }>;
     buildArgs(spec: EngineRunSpec): string[];
     parseEvent(line: unknown): AgentCliEvent | null;
   };
@@ -87,7 +89,7 @@ both kinds. Only the execution engine differs:
 
   `AgentCliEvent` is a thin union: `{ type: "openwiki"; event: OpenWikiRunEvent }`,
   `{ type: "session"; sessionId: string }`, `{ type: "result"; ok: boolean;
-  errorMessage?: string }`.
+errorMessage?: string }`.
 
 - `runner.ts` (adapter-agnostic):
   - Resolves the binary (env override → default), verifies it exists on PATH.
@@ -102,8 +104,8 @@ both kinds. Only the execution engine differs:
 
 - `claude-code.ts` (reference adapter):
   - Invocation: `claude -p --output-format stream-json --verbose
-    --permission-mode acceptEdits --append-system-prompt <system prompt>
-    [--model <model>] [--resume <sessionId>] --allowedTools <list>`.
+--permission-mode acceptEdits --append-system-prompt <system prompt>
+[--model <model>] [--resume <sessionId>] --allowedTools <list>`.
   - Allowed tools (conservative, documentation-shaped): `Read`, `Glob`, `Grep`,
     `LS`, `Write`, `Edit`, `MultiEdit`, plus read-only git via
     `Bash(git log:*)`, `Bash(git diff:*)`, `Bash(git show:*)`,

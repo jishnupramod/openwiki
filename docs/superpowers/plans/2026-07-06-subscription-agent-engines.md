@@ -26,11 +26,13 @@
 ### Task 1: Provider kinds in constants.ts and env diagnostics
 
 **Files:**
+
 - Modify: `src/constants.ts`
 - Modify: `src/env.ts:36-50` (managedEnvKeys), `src/env.ts:74-92` (getCredentialDiagnostics), `src/env.ts:176-183` (isNonSecretDiagnosticKey)
 - Test: `test/provider-kinds.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces (used by every later task):
   - `type OpenWikiProvider` now includes `"claude-code"`.
@@ -297,11 +299,13 @@ git commit -m "feat: add agent-cli provider kind with claude-code config"
 The engines module (Task 4/5) needs the same tool-call display formatting the DeepAgents stream parser uses. Importing it from `src/agent/index.ts` would create an import cycle (index → engines → index), so move it to a leaf module.
 
 **Files:**
+
 - Create: `src/agent/tool-format.ts`
 - Modify: `src/agent/index.ts:952-998` (delete the moved functions, import them instead)
 - Test: `test/tool-format.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces (used by Tasks 4-5 and by `src/agent/index.ts`):
   - `formatToolCallName(name: string): string`
@@ -397,7 +401,10 @@ export function formatToolValue(value: unknown): string {
   return JSON.stringify(value) ?? String(value);
 }
 
-export function createSyntheticToolCallId(name: string, input: unknown): string {
+export function createSyntheticToolCallId(
+  name: string,
+  input: unknown,
+): string {
   return `${name}:${formatToolValue(input)}`;
 }
 
@@ -447,11 +454,13 @@ git commit -m "refactor: extract tool-call formatting into tool-format module"
 ### Task 3: Engine types and the Claude Code adapter (args + install detection)
 
 **Files:**
+
 - Create: `src/agent/engines/types.ts`
 - Create: `src/agent/engines/claude-code.ts` (buildArgs + detectInstall; `parseEvent` returns `[]` for now)
 - Test: `test/claude-code-adapter.test.ts`
 
 **Interfaces:**
+
 - Consumes: `OpenWikiCommand`, `OpenWikiRunEvent` from `src/agent/types.ts` (Task 0 baseline).
 - Produces (used by Tasks 4-8):
   - `type EngineRunSpec = { command: OpenWikiCommand; cwd: string; modelId: string; prompt: string; systemPrompt: string; resumeSessionId?: string }`
@@ -687,10 +696,12 @@ git commit -m "feat: add agent CLI engine types and claude-code adapter args"
 ### Task 4: Claude Code stream-json event parsing
 
 **Files:**
+
 - Modify: `src/agent/engines/claude-code.ts` (replace the stub `parseEvent`)
 - Test: `test/claude-code-adapter.test.ts` (append a `describe` block)
 
 **Interfaces:**
+
 - Consumes: `formatToolArgs` from `src/agent/tool-format.ts` (Task 2), `AgentCliEvent` (Task 3).
 - Produces: `claudeCodeAdapter.parseEvent(line: unknown): AgentCliEvent[]` behavior relied on by the runner (Task 5): `session` events carry `session_id`; `tool_end` openwiki events use placeholder `name: "tool"` which the runner patches from its tool_start map.
 
@@ -937,14 +948,24 @@ function parseMessageContent(
       continue;
     }
 
-    if (role === "assistant" && block.type === "text" && typeof block.text === "string" && block.text.length > 0) {
+    if (
+      role === "assistant" &&
+      block.type === "text" &&
+      typeof block.text === "string" &&
+      block.text.length > 0
+    ) {
       events.push({
         type: "openwiki",
         event: { source: "main", type: "text", text: block.text },
       });
     }
 
-    if (role === "assistant" && block.type === "tool_use" && typeof block.id === "string" && typeof block.name === "string") {
+    if (
+      role === "assistant" &&
+      block.type === "tool_use" &&
+      typeof block.id === "string" &&
+      typeof block.name === "string"
+    ) {
       events.push({
         type: "openwiki",
         event: {
@@ -957,7 +978,11 @@ function parseMessageContent(
       });
     }
 
-    if (role === "user" && block.type === "tool_result" && typeof block.tool_use_id === "string") {
+    if (
+      role === "user" &&
+      block.type === "tool_result" &&
+      typeof block.tool_use_id === "string"
+    ) {
       events.push({
         type: "openwiki",
         event: {
@@ -995,11 +1020,13 @@ git commit -m "feat: parse claude-code stream-json events into run events"
 ### Task 5: Generic runner, adapter registry, and session map
 
 **Files:**
+
 - Create: `src/agent/engines/runner.ts`
 - Create: `src/agent/engines/index.ts`
 - Test: `test/agent-cli-runner.test.ts`
 
 **Interfaces:**
+
 - Consumes: `AgentCliAdapter`, `EngineRunSpec`, `AgentCliEvent` (Task 3/4); `AgentCliProviderConfig` (Task 1); `OpenWikiRunOptions` from `src/agent/types.ts`.
 - Produces (used by Task 7 and Task 8):
   - `runAgentCli(adapter: AgentCliAdapter, providerConfig: AgentCliProviderConfig, spec: EngineRunSpec, options: OpenWikiRunOptions): Promise<{ sessionId?: string }>` — resolves on a successful vendor result; throws with an actionable message otherwise.
@@ -1071,7 +1098,11 @@ if (process.argv.includes("--version")) {
 setInterval(() => {}, 1000);
 `;
 
-async function writeStub(dir: string, name: string, content: string): Promise<string> {
+async function writeStub(
+  dir: string,
+  name: string,
+  content: string,
+): Promise<string> {
   const stubPath = path.join(dir, name);
   await writeFile(stubPath, content, "utf8");
   await chmod(stubPath, 0o755);
@@ -1091,7 +1122,10 @@ const savedEnv: Record<string, string | undefined> = {};
 
 beforeEach(async () => {
   stubDir = await mkdtemp(path.join(tmpdir(), "openwiki-stub-"));
-  for (const key of [CLAUDE_CODE_BINARY_ENV_KEY, "OPENWIKI_AGENT_CLI_TIMEOUT_SECONDS"]) {
+  for (const key of [
+    CLAUDE_CODE_BINARY_ENV_KEY,
+    "OPENWIKI_AGENT_CLI_TIMEOUT_SECONDS",
+  ]) {
     savedEnv[key] = process.env[key];
     delete process.env[key];
   }
@@ -1113,7 +1147,11 @@ describe("getAgentCliAdapter", () => {
 
 describe("runAgentCli", () => {
   test("forwards events in order, patches tool_end names, and captures the session", async () => {
-    process.env[CLAUDE_CODE_BINARY_ENV_KEY] = await writeStub(stubDir, "stub-ok", SUCCESS_STUB);
+    process.env[CLAUDE_CODE_BINARY_ENV_KEY] = await writeStub(
+      stubDir,
+      "stub-ok",
+      SUCCESS_STUB,
+    );
     const events: OpenWikiRunEvent[] = [];
 
     const outcome = await runAgentCli(
@@ -1129,33 +1167,65 @@ describe("runAgentCli", () => {
     expect(types).toContain("tool_start");
     expect(types).toContain("tool_end");
     const toolEnd = events.find((event) => event.type === "tool_end");
-    expect(toolEnd).toMatchObject({ id: "tool-1", name: "Write", status: "finished" });
+    expect(toolEnd).toMatchObject({
+      id: "tool-1",
+      name: "Write",
+      status: "finished",
+    });
     const text = events.find((event) => event.type === "text");
-    expect(text).toMatchObject({ text: `prompt-bytes:${baseSpec.prompt.length}` });
+    expect(text).toMatchObject({
+      text: `prompt-bytes:${baseSpec.prompt.length}`,
+    });
   });
 
   test("throws the vendor error message with the stderr tail on failure", async () => {
-    process.env[CLAUDE_CODE_BINARY_ENV_KEY] = await writeStub(stubDir, "stub-fail", FAILURE_STUB);
+    process.env[CLAUDE_CODE_BINARY_ENV_KEY] = await writeStub(
+      stubDir,
+      "stub-fail",
+      FAILURE_STUB,
+    );
 
     await expect(
-      runAgentCli(claudeCodeAdapter, getAgentCliProviderConfig("claude-code"), baseSpec, {}),
+      runAgentCli(
+        claudeCodeAdapter,
+        getAgentCliProviderConfig("claude-code"),
+        baseSpec,
+        {},
+      ),
     ).rejects.toThrow(/Invalid API key[\s\S]*login expired/);
   });
 
   test("throws an actionable install hint when the binary is missing", async () => {
-    process.env[CLAUDE_CODE_BINARY_ENV_KEY] = path.join(stubDir, "does-not-exist");
+    process.env[CLAUDE_CODE_BINARY_ENV_KEY] = path.join(
+      stubDir,
+      "does-not-exist",
+    );
 
     await expect(
-      runAgentCli(claudeCodeAdapter, getAgentCliProviderConfig("claude-code"), baseSpec, {}),
+      runAgentCli(
+        claudeCodeAdapter,
+        getAgentCliProviderConfig("claude-code"),
+        baseSpec,
+        {},
+      ),
     ).rejects.toThrow(/Install Claude Code/);
   });
 
   test("kills a hung run after the configured timeout", async () => {
-    process.env[CLAUDE_CODE_BINARY_ENV_KEY] = await writeStub(stubDir, "stub-hang", HANG_STUB);
+    process.env[CLAUDE_CODE_BINARY_ENV_KEY] = await writeStub(
+      stubDir,
+      "stub-hang",
+      HANG_STUB,
+    );
     process.env.OPENWIKI_AGENT_CLI_TIMEOUT_SECONDS = "1";
 
     await expect(
-      runAgentCli(claudeCodeAdapter, getAgentCliProviderConfig("claude-code"), baseSpec, {}),
+      runAgentCli(
+        claudeCodeAdapter,
+        getAgentCliProviderConfig("claude-code"),
+        baseSpec,
+        {},
+      ),
     ).rejects.toThrow(/timed out after 1 seconds/);
   }, 15_000);
 });
@@ -1241,7 +1311,10 @@ export async function runAgentCli(
     );
   }
 
-  emitDebug(options, `engine=${adapter.id} binary=${binary} version=${install.version ?? "unknown"}`);
+  emitDebug(
+    options,
+    `engine=${adapter.id} binary=${binary} version=${install.version ?? "unknown"}`,
+  );
 
   const timeoutSeconds = resolveTimeoutSeconds();
   const outcome: AgentCliRunOutcome = {};
@@ -1283,7 +1356,10 @@ export async function runAgentCli(
     try {
       parsed = JSON.parse(trimmed);
     } catch {
-      emitDebug(options, `engine.unparsedLine=${JSON.stringify(trimmed.slice(0, 200))}`);
+      emitDebug(
+        options,
+        `engine.unparsedLine=${JSON.stringify(trimmed.slice(0, 200))}`,
+      );
       return;
     }
 
@@ -1338,7 +1414,9 @@ export async function runAgentCli(
     return outcome;
   }
 
-  throw new Error(formatRunFailure(providerConfig, result, exitCode, stderrTail));
+  throw new Error(
+    formatRunFailure(providerConfig, result, exitCode, stderrTail),
+  );
 }
 
 function formatRunFailure(
@@ -1396,7 +1474,7 @@ function emitDebug(options: OpenWikiRunOptions, message: string): void {
 }
 ```
 
-Note: `result` events being handled *before* the tool-name patch matters — TypeScript narrows the union via the `event.type` checks in the order shown.
+Note: `result` events being handled _before_ the tool-name patch matters — TypeScript narrows the union via the `event.type` checks in the order shown.
 
 - [ ] **Step 5: Run tests, lint, and build to verify everything passes**
 
@@ -1415,10 +1493,12 @@ git commit -m "feat: add agent CLI runner with event mapping, timeout, and sessi
 ### Task 6: Engine-aware system prompt
 
 **Files:**
+
 - Modify: `src/agent/prompt.ts`
 - Test: `test/prompt-engines.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces (used by Task 7):
   - `export type PromptEngine = "deepagents" | "agent-cli"`
@@ -1438,7 +1518,9 @@ describe("createSystemPrompt engines", () => {
 
     expect(prompt).toContain("Use virtual paths such as /README.md");
     expect(prompt).toContain("read_file");
-    expect(prompt).toContain("Use /openwiki/_plan.md when writing this temporary plan");
+    expect(prompt).toContain(
+      "Use /openwiki/_plan.md when writing this temporary plan",
+    );
     expect(prompt).toContain(
       "When writing required documentation with filesystem tools, use /openwiki/... paths",
     );
@@ -1553,10 +1635,12 @@ git commit -m "feat: add agent-cli variant of the OpenWiki system prompt"
 ### Task 7: Runtime dispatch in `runOpenWikiAgent` + end-to-end stub test
 
 **Files:**
+
 - Modify: `src/agent/index.ts:88-98` (dispatch) and add two functions near `createRunUserMessage`
 - Test: `test/agent-cli-run.test.ts`
 
 **Interfaces:**
+
 - Consumes: `isAgentCliProvider`, `getAgentCliProviderConfig` (Task 1); `getAgentCliAdapter` (Task 5); `runAgentCli`, `getThreadSessionId`, `setThreadSessionId` (Task 5); `EngineRunSpec` (Task 3); `createSystemPrompt(command, "agent-cli")` (Task 6).
 - Produces: `runOpenWikiAgent` transparently supports `OPENWIKI_PROVIDER=claude-code` — same `OpenWikiRunResult` shape, same event stream, no API key or LangSmith required. `src/cli.tsx` needs no changes.
 
@@ -1703,34 +1787,34 @@ and add `getAgentCliProviderConfig, isAgentCliProvider,` to the existing `../con
 In `runOpenWikiAgent`, replace this block (currently lines 88-96):
 
 ```ts
-  const provider = resolveConfiguredProvider();
-  const providerBaseUrl = resolveProviderBaseUrl(provider);
-  emitDebug(options, `provider=${provider}`);
-  if (providerBaseUrl) {
-    emitDebug(options, `provider.baseUrl=${JSON.stringify(providerBaseUrl)}`);
-  }
-  ensureProviderKey(provider);
+const provider = resolveConfiguredProvider();
+const providerBaseUrl = resolveProviderBaseUrl(provider);
+emitDebug(options, `provider=${provider}`);
+if (providerBaseUrl) {
+  emitDebug(options, `provider.baseUrl=${JSON.stringify(providerBaseUrl)}`);
+}
+ensureProviderKey(provider);
 ```
 
 with:
 
 ```ts
-  const provider = resolveConfiguredProvider();
-  emitDebug(options, `provider=${provider}`);
+const provider = resolveConfiguredProvider();
+emitDebug(options, `provider=${provider}`);
 
-  if (isAgentCliProvider(provider)) {
-    const agentCliModelId = resolveModelId(options, provider);
+if (isAgentCliProvider(provider)) {
+  const agentCliModelId = resolveModelId(options, provider);
 
-    emitDebug(options, `model=${agentCliModelId}`);
+  emitDebug(options, `model=${agentCliModelId}`);
 
-    return runAgentCliRun(command, cwd, options, provider, agentCliModelId);
-  }
+  return runAgentCliRun(command, cwd, options, provider, agentCliModelId);
+}
 
-  const providerBaseUrl = resolveProviderBaseUrl(provider);
-  if (providerBaseUrl) {
-    emitDebug(options, `provider.baseUrl=${JSON.stringify(providerBaseUrl)}`);
-  }
-  ensureProviderKey(provider);
+const providerBaseUrl = resolveProviderBaseUrl(provider);
+if (providerBaseUrl) {
+  emitDebug(options, `provider.baseUrl=${JSON.stringify(providerBaseUrl)}`);
+}
+ensureProviderKey(provider);
 ```
 
 (The update no-op check already ran before this point, so agent-cli runs inherit it. The OpenRouter debug-fetch wrapper is installed after this branch, so it stays API-only.)
@@ -1843,12 +1927,14 @@ git commit -m "feat: dispatch documentation runs to agent CLI engines"
 ### Task 8: Onboarding — setup-flow module, agent-check step, selectable provider
 
 **Files:**
+
 - Create: `src/credentials-flow.ts` (pure step logic extracted from `credentials.tsx` + agent-cli branches)
 - Modify: `src/credentials.tsx` (use the flow module; add the `agent-check` step UI; hide key/LangSmith steps for agent-cli)
 - Modify: `src/constants.ts:48-55` (add `"claude-code"` to `SELECTABLE_OPENWIKI_PROVIDERS`)
 - Test: `test/credentials-flow.test.ts`
 
 **Interfaces:**
+
 - Consumes: `isAgentCliProvider`, `getAgentCliProviderConfig` (Task 1); `getAgentCliAdapter` (Task 5).
 - Produces:
   - `src/credentials-flow.ts` exports: `type PromptStep = "agent-check" | "api-key" | "base-url" | "langsmith" | "model" | "provider"`, `needsCredentialSetup(modelIdOverride?)`, `needsBaseUrlStep(provider)`, `isBaseUrlConfigured(provider)`, `getInitialStep(modelIdOverride, provider)`, `getNextStepAfterProvider(provider, modelIdOverride)`, `getNextStepAfterAgentCheck(provider, modelIdOverride)`, `getNextStepAfterApiKey(provider, modelIdOverride)`, `getNextStepAfterBaseUrl(provider, modelIdOverride)`, `getNextStepAfterModel(provider)`.
@@ -2129,15 +2215,15 @@ and add `getAgentCliProviderConfig, isAgentCliProvider,` to the `./constants.js`
 2. Add agent-check state inside `InitSetup` (next to the other `useState` calls):
 
 ```ts
-  type AgentCheckState =
-    | { status: "checking" }
-    | { status: "found"; version: string }
-    | { status: "missing"; message: string };
+type AgentCheckState =
+  | { status: "checking" }
+  | { status: "found"; version: string }
+  | { status: "missing"; message: string };
 
-  const [agentCheck, setAgentCheck] = useState<AgentCheckState>({
-    status: "checking",
-  });
-  const [agentCheckAttempt, setAgentCheckAttempt] = useState(0);
+const [agentCheck, setAgentCheck] = useState<AgentCheckState>({
+  status: "checking",
+});
+const [agentCheckAttempt, setAgentCheckAttempt] = useState(0);
 ```
 
 (Declare the `AgentCheckState` type at module level, below `PromptStep` usage, not inside the component.)
@@ -2145,97 +2231,97 @@ and add `getAgentCliProviderConfig, isAgentCliProvider,` to the `./constants.js`
 3. Add the check effect after the existing initial-step `useEffect`:
 
 ```ts
-  useEffect(() => {
-    if (step !== "agent-check") {
+useEffect(() => {
+  if (step !== "agent-check") {
+    return;
+  }
+
+  let cancelled = false;
+
+  setAgentCheck({ status: "checking" });
+
+  void (async () => {
+    const config = getAgentCliProviderConfig(provider);
+    const binary =
+      process.env[config.binaryEnvKey]?.trim() || config.defaultBinary;
+    const status = await getAgentCliAdapter(provider).detectInstall(binary);
+
+    if (cancelled) {
       return;
     }
 
-    let cancelled = false;
+    if (status.found) {
+      setAgentCheck({ status: "found", version: status.version ?? "unknown" });
+    } else {
+      setAgentCheck({ status: "missing", message: config.installHint });
+    }
+  })();
 
-    setAgentCheck({ status: "checking" });
-
-    void (async () => {
-      const config = getAgentCliProviderConfig(provider);
-      const binary =
-        process.env[config.binaryEnvKey]?.trim() || config.defaultBinary;
-      const status = await getAgentCliAdapter(provider).detectInstall(binary);
-
-      if (cancelled) {
-        return;
-      }
-
-      if (status.found) {
-        setAgentCheck({ status: "found", version: status.version ?? "unknown" });
-      } else {
-        setAgentCheck({ status: "missing", message: config.installHint });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [step, provider, agentCheckAttempt]);
+  return () => {
+    cancelled = true;
+  };
+}, [step, provider, agentCheckAttempt]);
 ```
 
 4. In `useInput`, before the generic `if (key.return)` fallthrough, add:
 
 ```ts
-    if (step === "agent-check") {
-      if (key.return && agentCheck.status === "found") {
-        void submit();
-      } else if (key.return && agentCheck.status === "missing") {
-        setAgentCheckAttempt((attempt) => attempt + 1);
-      }
+if (step === "agent-check") {
+  if (key.return && agentCheck.status === "found") {
+    void submit();
+  } else if (key.return && agentCheck.status === "missing") {
+    setAgentCheckAttempt((attempt) => attempt + 1);
+  }
 
-      return;
-    }
+  return;
+}
 ```
 
 5. In `submit()`, add a branch after the `step === "provider"` block:
 
 ```ts
-    if (step === "agent-check") {
-      if (agentCheck.status !== "found") {
-        return;
-      }
+if (step === "agent-check") {
+  if (agentCheck.status !== "found") {
+    return;
+  }
 
-      const nextStep = getNextStepAfterAgentCheck(provider, modelIdOverride);
+  const nextStep = getNextStepAfterAgentCheck(provider, modelIdOverride);
 
-      if (nextStep) {
-        setIsCustomModelInput(false);
-        setStep(nextStep);
-        return;
-      }
+  if (nextStep) {
+    setIsCustomModelInput(false);
+    setStep(nextStep);
+    return;
+  }
 
-      await completeSetup({
-        nextApiKey: null,
-        nextBaseUrl: null,
-        nextLangSmithKey: null,
-        nextModelId: modelId,
-        nextProvider: provider,
-      });
-      return;
-    }
+  await completeSetup({
+    nextApiKey: null,
+    nextBaseUrl: null,
+    nextLangSmithKey: null,
+    nextModelId: modelId,
+    nextProvider: provider,
+  });
+  return;
+}
 ```
 
 6. In the `step === "model"` branch of `submit()`, replace:
 
 ```ts
-      if (process.env.LANGSMITH_API_KEY === undefined) {
-        setStep("langsmith");
-        return;
-      }
+if (process.env.LANGSMITH_API_KEY === undefined) {
+  setStep("langsmith");
+  return;
+}
 ```
 
 with:
 
 ```ts
-      const nextStep = getNextStepAfterModel(provider);
+const nextStep = getNextStepAfterModel(provider);
 
-      if (nextStep) {
-        setStep(nextStep);
-        return;
-      }
+if (nextStep) {
+  setStep(nextStep);
+  return;
+}
 ```
 
 7. In the step-row rendering, replace the "Provider key" `<SetupStep .../>` with a kind-conditional pair, and hide LangSmith for agent-cli:
@@ -2270,34 +2356,34 @@ and wrap the LangSmith `<SetupStep .../>` in `{isAgentCliProvider(provider) ? nu
 8. Pass `agentCheck` into `Prompt` (add to `PromptProps` as `agentCheck: AgentCheckState`) and add to the `Prompt` component before the `api-key` branch:
 
 ```tsx
-  if (step === "agent-check") {
-    if (agentCheck.status === "checking") {
-      return <Text>Checking for the {getProviderLabel(provider)} CLI...</Text>;
-    }
+if (step === "agent-check") {
+  if (agentCheck.status === "checking") {
+    return <Text>Checking for the {getProviderLabel(provider)} CLI...</Text>;
+  }
 
-    if (agentCheck.status === "found") {
-      return (
-        <Box flexDirection="column">
-          <Text>
-            Found the {getProviderLabel(provider)} CLI{" "}
-            <Text color="green">{agentCheck.version}</Text>.
-          </Text>
-          <Text color="gray">
-            No API key needed — runs use your subscription login. Press Enter
-            to continue.
-          </Text>
-        </Box>
-      );
-    }
-
+  if (agentCheck.status === "found") {
     return (
       <Box flexDirection="column">
-        <Text color="red">Agent CLI not found.</Text>
-        <Text>{agentCheck.message}</Text>
-        <Text color="gray">Press Enter to check again.</Text>
+        <Text>
+          Found the {getProviderLabel(provider)} CLI{" "}
+          <Text color="green">{agentCheck.version}</Text>.
+        </Text>
+        <Text color="gray">
+          No API key needed — runs use your subscription login. Press Enter to
+          continue.
+        </Text>
       </Box>
     );
   }
+
+  return (
+    <Box flexDirection="column">
+      <Text color="red">Agent CLI not found.</Text>
+      <Text>{agentCheck.message}</Text>
+      <Text color="gray">Press Enter to check again.</Text>
+    </Box>
+  );
+}
 ```
 
 9. In `getProviderArticle`, include the new provider in the "a" list: `return provider === "baseten" || provider === "fireworks" || provider === "claude-code" ? "a" : "an";`
@@ -2331,6 +2417,7 @@ git commit -m "feat: onboard claude-code with an install check instead of an API
 ### Task 9: Documentation
 
 **Files:**
+
 - Modify: `README.md` (new subsection under "## Customizing")
 - Modify: `openwiki/quickstart.md:9` and `openwiki/quickstart.md:49`
 
@@ -2409,6 +2496,7 @@ git commit -m "docs: document the claude-code subscription provider"
 This task needs the real `claude` CLI logged in on the machine (it is, on this one). It consumes a small amount of subscription quota.
 
 **Files:**
+
 - Possibly modify: `src/agent/engines/claude-code.ts` + `test/claude-code-adapter.test.ts` (only if the live event format differs from Task 4's assumptions)
 - Possibly modify: `openwiki/*.md` (via the dogfooding update run)
 
